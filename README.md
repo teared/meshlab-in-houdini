@@ -26,7 +26,7 @@ For geometry generation filters such as "Fractal Terrain" inputs are ignored and
 #### Manage filters
 ![alt tag](http://i.imgur.com/01DuNRo.png)
 
-It is up to users which filter they want to use. New filters can be exported from MeshLab as an .mlx scripts. Load the MeshLab, apply some filters and then export them from `Filters/Show current filter script` dialog into a file, then select it in "Install Filters" parameter. All filters inside the script will be installed, existing filters can be updated or skipped during installation. Uninstall process is pretty straightforward - select unwanted scripts with arrow-menu. Both install and uninstall operations invoked with the `Update` button.
+It is up to users which filters they want to use. New filters can be exported from MeshLab as .mlx scripts. Load the MeshLab, apply some filters, export them from `Filters/Show current filter script` dialog into a file, then select this file with "Install Filters" selector. All filters inside the file will be installed, existing filters can be updated or skipped during installation. Uninstall process is pretty straightforward - select unwanted scripts with the arrow-menu. Both install and uninstall operations invoked with the `Update` button.
 
 Tip: MeshLab exports filters with parameters values was set by user. This values will be used as defaults in Houdini. To get proper defaults, reset all parameters in the MeshLab filter dialog when applying the filter.
 
