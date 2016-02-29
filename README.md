@@ -12,7 +12,7 @@ MeshLab filters can be treated as particular SOP nodes doing remeshing, simplifi
 Drop into one of the OTL scan paths, e. g. `$HOME/otls` or `$HIP/otls`.
 
 #### Usage
-Select one or more filters and setup parameters for them, building the script. Parameters are similar to MeshLab filter dialogs. Input geometry can be cached to speedup cooking, disconnect corresponding input and select a file in the Input Mesh parameter. If using colorize, vertex quality, uv output filters, corresponding -om options must be present, otherwise MeshLab won't export it. Use the arrow-menu to list all -om options. Tip: change network update mode to "Manual" to make proper script setup. Changing any parameter forces this node to begin non-interruptible cook.
+Select one or more filters and setup parameters for them. Parameters are similar to MeshLab filter dialogs. If using colorize, vertex quality, uv output filters, corresponding -om options must be present, otherwise MeshLab won't export it. Use the arrow-menu to list all -om options. Input geometry can be cached to speedup cooking. Disconnect corresponding input and select a file in the Input Mesh parameter. Tip: change network update mode to "Manual" to make proper script setup. Changing any parameter forces this node to begin non-interruptible cook.
 
 ##### Settings
 ![alt tag](http://i.imgur.com/4w7breX.png)
