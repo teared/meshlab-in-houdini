@@ -1,6 +1,6 @@
 ## MeshLab in Houdini
 
-Bringing [MeshLab](http://meshlab.sourceforge.net/) functionality into Houdini.
+Bringing [MeshLab](http://meshlab.net/) functionality into Houdini.
 
 ![alt tag](http://i.imgur.com/6GCDgxq.png)
 
