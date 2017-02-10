@@ -1,8 +1,6 @@
-import logging
 import os
 import re
 import subprocess
-import tempfile
 
 
 def check():
@@ -38,11 +36,17 @@ def inputs_path():
             filename = 'meshlab_{}_input{}.{}'.format(ID, i, input_format)
             path = os.path.join(temp, filename)
         else:
-            path = hou.expandString(hou.evalParm('input%d'%i))
+            path = hou.expandString(hou.evalParm('input%d' % i))
             if not os.path.exists(path):
-                path = 'empty_input'
+                continue
         inputs.append(os.path.normpath(path))
 
+    if not inputs:
+        raise hou.NodeWarning('Empty inputs are not allowed. '
+                              'If you want to create new mesh, '
+                              'use dummy input (like box) and '
+                              'start your script from the '
+                              '"Delete Current Mesh" filter.')
     return inputs
 
 
@@ -65,15 +69,15 @@ def script_path():
 
 
 def command():
-    '''Create a list of command line arguments.'''
-    command = [mls_path(),]
+    '''Create list of command line arguments.'''
+    command = [mls_path()]
     for path in inputs_path():
         command.extend(['-i', path])
     command.extend(['-o', output_path()])
-    command.extend(['-s', script_path()])
     options = hou.evalParm('options')
     if options != '':
-        command.extend(['-om'] + options.split())
+        command.extend(['-m'] + options.split())
+    command.extend(['-s', script_path()])
     return command
 
 
@@ -103,7 +107,7 @@ def clean():
     node = hou.pwd()
 
     def clean_remove(filename):
-        '''Try to remove file from disk and log result.'''
+        '''Try to remove file from disk.'''
         try:
             os.remove(os.path.join(temp, filename))
         except OSError as err:
@@ -131,13 +135,9 @@ def clean():
     node.destroyUserData('ID')
 
 
-check()
-ID = hou.phm().generate_id()
-hou.pwd().setUserData('ID', ID)
-
-
-# Write script and input geometry to disk.
-try:
+def run():
+    '''Main script routine.'''
+    # Write script and input geometry to disk.
     with open(script_path(), 'w') as f:
         f.write(generate_script())
 
@@ -145,12 +145,8 @@ try:
         if connections:
             input_node = connections[0].inputNode()
             input_node.geometry().saveToFile(inputs_path()[i])
-except:
-    clean()
 
-
-# Run MeshLab.
-try:
+    # Run MeshLab.
     meshlab_process = subprocess.Popen(
         command(),
         stdout=subprocess.PIPE,
@@ -158,15 +154,22 @@ try:
         shell=True
     )
     meshlab_output = meshlab_process.communicate()[0]
-except:
-    clean()
+
+    # Fetch geometry back.
+    try:
+        hou.pwd().geometry().loadFromFile(output_path())
+    except hou.OperationFailed:
+        raise hou.NodeWarning("MeshLab didn't produce any output.")
 
 
-# Fetch geometry back.
+check()
+ID = hou.phm().generate_id()
+hou.pwd().setUserData('ID', ID)
+
 try:
-    hou.pwd().geometry().loadFromFile(output_path())
+    run()
 except:
+    raise
+finally:
     clean()
 
-
-clean()

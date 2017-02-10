@@ -251,7 +251,7 @@ def update_filter_library():
             install_name = NewFilter.get('name')
             if install_name in installed:
                 # Prompt the user to replace a filter, skip replacing or cancel the operation.
-                message = '"{}" already installed. Replace with a later copy?'.format(name)
+                message = '"{}" already installed. Replace with a later copy?'.format(install_name)
                 buttons = ('Replace', 'Skip', 'Cancel')
                 choice = hou.ui.displayMessage(
                     message,
