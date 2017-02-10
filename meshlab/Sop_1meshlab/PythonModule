@@ -1,0 +1,401 @@
+import logging
+import os
+import re
+import subprocess
+import tempfile
+import xml.etree.ElementTree as ET
+
+import toolutils
+
+# Install the titlecase function from HDA's section package.
+titlecase = toolutils.createModuleFromSection('titlecase', kwargs['type'], 'titlecase.py')
+
+
+
+
+'''General functions.'''
+
+def generate_id():
+    '''Generate a unique sequence for filenames.'''
+    return next(tempfile._get_candidate_names())
+
+def to_token(string):
+    '''Convert input into a safe "alpha_numeric24" variable name.'''
+    token = string.strip().lower()
+    token = re.sub(r'[^\w\s-]', '', token)
+    token = re.sub(r'[-\s]+', '_', token)
+    token = token.strip('_')
+    return token
+
+def to_title(string):
+    '''Beautify titles and labels.'''
+    title = string.rstrip(':')
+    title = hou.phm().titlecase.titlecase(title)
+    return title
+
+def filter_templates(prefix, mlxfilter):
+    '''Given an XML string of a "filter", return a list of parameter templates.'''
+    templates = []
+
+    # Create parameter templates for an each "Param" element in the "filter" element.
+    Filter = ET.fromstring(mlxfilter)
+    for Param in Filter:
+        pname = Param.get('name')
+        pname = to_token(pname)
+        pname = '{}_{}'.format(prefix, pname)
+
+        plabel = Param.get('description')
+        plabel = to_title(plabel)
+
+        phelp = Param.get('tooltip')
+        ptype = Param.get('type')
+
+        # Depending on a type of the Param element, create a specific parameter template.
+        if ptype in ('RichFloat', 'RichDynamicFloat'):
+            pvalue = Param.get('value')
+            pvalue = float(pvalue)
+            template = hou.FloatParmTemplate(
+                pname, plabel, 1,
+                default_value=[pvalue],
+                help=phelp
+            )
+        elif ptype == 'RichInt':
+            pvalue = Param.get('value')
+            pvalue = int(pvalue)
+            template = hou.IntParmTemplate(
+                pname, plabel, 1,
+                default_value=[pvalue],
+                help=phelp
+            )
+        elif ptype == 'RichMesh':
+            pvalue = Param.get('value')
+            pvalue = int(pvalue)
+            script = "kwargs['node'].hdaModule().inputsMenu()"
+            template = hou.MenuParmTemplate(
+                pname, plabel,
+                menu_items=([]),
+                menu_labels=([]),
+                item_generator_script=script,
+                default_value=pvalue,
+                help=phelp
+            )
+        elif ptype == 'RichBool':
+            pvalue = Param.get('value')
+            pvalue = True if pvalue == 'true' else False
+            expression = "`ifs(ch('{}_wrapper')==1, 'true', 'false')`".format(pname)
+            template = hou.StringParmTemplate(
+                pname, plabel, 1,
+                default_value=([expression]),
+                is_hidden=True,
+                )
+            # Wrapper is necessary since ch() expression return an integer, not a string.
+            template_wrapper = hou.ToggleParmTemplate(
+                '{}_wrapper'.format(pname), plabel,
+                default_value=pvalue,
+                help=phelp
+            )
+            templates.append(template_wrapper)
+        elif ptype == 'RichEnum':
+            pvalue = Param.get('value')
+            pvalue = int(pvalue)
+            pitems = []
+            plabels = []
+            count = Param.get('enum_cardinality')
+
+            for i in range(int(count)):
+                item = str(i)
+                label = Param.get('enum_val{}'.format(i))
+                pitems.append(item)
+                plabels.append(to_title(label))
+            template = hou.MenuParmTemplate(
+                pname, plabel,
+                menu_items=pitems, menu_labels=plabels,
+                default_value=pvalue,
+                help=phelp
+            )
+        elif ptype == 'RichAbsPerc':
+            pvalue = Param.get('value')
+            pmin = Param.get('min')
+            pmax = Param.get('max')
+            pvalue = float(pvalue)
+            pmin = float(pmin)
+            pmax = float(pmax)
+            template = hou.FloatParmTemplate(
+                pname, plabel, 1,
+                default_value=[pvalue],
+                min=pmin, max=pmax,
+                help=phelp
+            )
+        elif ptype == 'RichPoint3f':
+            pvalue = [
+                Param.get('x'),
+                Param.get('y'),
+                Param.get('z')
+            ]
+            pvalue = [float(x) for x in pvalue]
+            template = hou.FloatParmTemplate(
+                pname, plabel, 3,
+                default_value=[pvalue[0], pvalue[1], pvalue[2]],
+                help=phelp
+            )
+
+        # Append the parameter template to the list.
+        templates.append(template)
+
+        # Replace the value attribute in the Param element with a channel reference.
+        if ptype == 'RichPoint3f':
+            ch_x = "`ch('{}x')`".format(pname)
+            ch_y = "`ch('{}y')`".format(pname)
+            ch_z = "`ch('{}z')`".format(pname)
+            Param.set('x', ch_x)
+            Param.set('y', ch_z)
+            Param.set('z', ch_z)
+        elif ptype == 'RichBool':
+            ch_value = "`chs('{}')`".format(pname)
+            Param.set('value', ch_value)
+        else:
+            ch_value = "`ch('{}')`".format(pname)
+            Param.set('value', ch_value)
+
+    # Create a separator, a label and an XML string with channel-referenced value attributes.
+    sep_name = '{}_sep'.format(prefix)
+    label_name = '{}_filter'.format(prefix)
+    label_title = to_title(Filter.get('name'))
+    script_name = '{}_mlxfilter'.format(prefix)
+    script_string = ET.tostring(Filter)
+    script_tags = {'editor': '1', 'editorlang': ''}
+
+    sep = hou.SeparatorParmTemplate(sep_name)
+    label = hou.LabelParmTemplate(
+        label_name, '',
+        is_label_hidden=True,
+        column_labels=([label_title])
+    )
+    script = hou.StringParmTemplate(
+        script_name, '', 1,
+        default_value=([script_string]),
+        is_label_hidden=True,
+        is_hidden=True,
+        tags=script_tags
+    )
+
+    templates.insert(0, sep)
+    templates.insert(1, label)
+    templates.append(script)
+
+    return templates
+
+def update_interface():
+    '''Generate a new parameter interface from the current node setup.'''
+    node = hou.pwd()
+    template_group = node.type().definition().parmTemplateGroup()
+
+    # Load the HDA filter library.
+    script = hou.readFile('opdef:/Sop/meshlab?MeshLabFilters')
+    FilterScript = ET.fromstring(script)
+
+    # Build a list of parameter templates generated from a filter library embedded in the HDA.
+    templates = []
+
+    for i in range(hou.evalParm('nfilters')):
+        filter_name = 'f{}'.format(i)
+        filter_token = hou.evalParm(filter_name)
+
+        # Search for the filter in the HDA filter library.
+        for Filter in FilterScript:
+            name = Filter.get('name')
+            if filter_token == to_token(name):
+                mlxfilter = ET.tostring(Filter)
+                break
+        else:
+            # If no filters found (e.g. the menu at the "default" state), skip the iteration.
+            continue
+        parm_templates = filter_templates(filter_name, mlxfilter)
+        templates.extend(parm_templates)
+
+    # Add all templates to the parameter interface.
+    for template in templates:
+        template_group.appendToFolder('Script', template)
+    node.setParmTemplateGroup(template_group)
+
+def update_filter_library():
+    '''Uninstall and install filters from the embedded filter library.'''
+    if hou.evalParm('install') == hou.evalParm('uninstall') == '':
+        return
+
+    # Load the HDA filter library.
+    script = hou.readFile('opdef:/Sop/meshlab?MeshLabFilters')
+    FilterScript = ET.fromstring(script)
+
+    # Uninstall filters.
+    string = hou.evalParm('uninstall')
+    uninstall = string.split(' ')
+    for Filter in FilterScript:
+        name = Filter.get('name')
+        name = to_token(name)
+        if name in uninstall:
+            FilterScript.remove(Filter)
+
+    # Install filters.
+    path = hou.evalParm('install')
+    if path != "":
+        # Create a list of already installed filters.
+        installed = []
+        for Filter in FilterScript:
+            name = Filter.get('name')
+            installed.append(name)
+
+        # Install filters from the file.
+        NewScript = ET.parse(path).getroot()
+        for NewFilter in NewScript:
+            install_name = NewFilter.get('name')
+            if install_name in installed:
+                # Prompt the user to replace a filter, skip replacing or cancel the operation.
+                message = '"{}" already installed. Replace with a later copy?'.format(name)
+                buttons = ('Replace', 'Skip', 'Cancel')
+                choice = hou.ui.displayMessage(
+                    message,
+                    buttons=buttons,
+                    default_choice=1,
+                    close_choice=2
+                )
+                if choice == 2:
+                    return
+                elif choice == 0:
+                    for Filter in FilterScript:
+                        name = Filter.get('name')
+                        if install_name == name:
+                            FilterScript.remove(Filter)
+                            FilterScript.append(NewFilter)
+            else:
+                FilterScript.append(NewFilter)
+                installed.append(install_name)
+
+    # Sort filters.
+    FilterScript[:] = sorted(FilterScript, key=lambda x: x.get("name"))
+
+    # Update the HDA on the disk.
+    node = hou.pwd()
+    hda = node.type().definition()
+    script = ET.tostring(FilterScript)
+    hda.addSection('MeshLabFilters', script)
+    hda.updateFromNode(node)
+
+    # Update the interface.
+    update_interface()
+
+
+
+
+'''Menu functions.'''
+
+def inputsMenu():
+    '''Return a list of input name-label pairs describing input names.'''
+    return ['1', 'First Mesh', '2', 'Second Mesh']
+
+def loggingMenu():
+    '''Return a list of logging modes choises.'''
+    items = [
+        'WARNING', 'Warnings',
+        'DEBUG', 'Verbose Info',
+    ]
+    return items
+
+def inputFormatMenu():
+    'Return a list of formats exported from Houdini to MeshLab.'
+    items = [
+        'ply', 'Stanford Polygon File Format',
+        'obj', 'Alias Wavefront Object',
+        'stl', 'STL File Format',
+    ]
+    return items
+
+def outputFormatMenu():
+    'Return a list of formats imported to Houdini from MeshLab.'
+    return inputFormatMenu()
+
+def optionsMenu():
+    '''
+    Return a list of MeshLab CLI-options for saving geometry attributes.
+
+    vr Radius
+    vc Vertex Colors
+    vf Vertex Flags
+    vq Vertex Quality
+    vn Vertex Normals
+    vt Vertex Texture Coords
+    fc Face Colors
+    ff Face Flags
+    fq Face Quality
+    fn Face Normals
+    wc Wedge Colors
+    wn Wedge Normals
+    wt Wedge Texture Coords
+    '''
+    output_format = hou.evalParm('output_format')
+
+    if output_format == 'ply':
+        options = [
+            'vc', 'Vertex Colors',
+            'vn', 'Vertex Normals',
+            'vq', 'Vertex Quality',
+            'vf', 'Vertex Flags',
+            'vr', 'Radius',
+            'wt', 'Wedge Texture Coords (UVs)',
+            'fc', 'Face Colors',
+            'fq', 'Face Quality',
+            'ff', 'Face Flags',
+        ]
+    elif output_format == 'obj':
+        options = [
+            'vn', "Vertex Normals",
+            'wt', "Wedge Texture Coords (UVs)",
+        ]
+    elif output_format == 'stl':
+        options = [
+            'fc', 'Face Colors',
+        ]
+    else:
+        options = []
+    return options
+
+def installed_filters():
+    '''Return a menu-friendly list of name-label pairs describing filter names.'''
+    string = hou.readFile('opdef:/Sop/meshlab?MeshLabFilters')
+    FilterScript = ET.fromstring(string)
+    items = []
+    for Filter in FilterScript.findall('filter'):
+        filtername = Filter.get('name')
+        name = to_token(filtername)
+        label = to_title(filtername)
+        items.extend([name, label])
+    return items
+
+def uninstallMenu():
+    '''Return a menu of filters available to uninstall.'''
+    return installed_filters()
+
+def filtersMenu():
+    '''Return a menu of filters available to use.'''
+    return ['default', 'Select Filter...'] + installed_filters()
+
+
+
+
+'''Parameter callbacks.'''
+
+def onScriptChanged():
+    '''Runs every time when user changes the filters number.'''
+    update_interface()
+
+def onFilterChanged():
+    '''Runs every time when user selects other filter from a drop-down menu.'''
+    onScriptChanged()
+
+def onUpdatePressed():
+    '''Runs when user press the "Update" button.'''
+    update_filter_library()
+
+def onOutputFormatChanged():
+    '''Runs when user changes the MeshLab output format.'''
+    hou.parm('options').revertToDefaults()

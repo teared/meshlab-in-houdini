@@ -1,0 +1,172 @@
+import logging
+import os
+import re
+import subprocess
+import tempfile
+
+
+def check():
+    '''Check if there are filters selected.'''
+    for i in range(hou.evalParm('nfilters')):
+        if hou.evalParm('f{}'.format(i)) not in ('', 'default'):
+            return
+
+    raise hou.NodeWarning('The current script is empty.')
+
+
+def mls_path():
+    '''Get a path to the meshlabserver executable.'''
+    mls = hou.evalParm('meshlabserver')
+    if os.path.isdir(mls):
+        mls = os.path.normpath(os.path.join(mls, 'meshlabserver'))
+
+    if not os.path.exists(mls):
+        raise hou.NodeWarning('Wrong path to the meshlabserver executable.')
+
+    return mls
+
+
+def inputs_path():
+    '''Generate path for each input or specified mesh.'''
+    temp = hou.evalParm('tempdir')
+    node = hou.pwd()
+    inputs = []
+
+    for i, connections in enumerate(node.inputConnectors()):
+        if connections:
+            input_format = hou.evalParm('input_format')
+            filename = 'meshlab_{}_input{}.{}'.format(ID, i, input_format)
+            path = os.path.join(temp, filename)
+        else:
+            path = hou.expandString(hou.evalParm('input%d'%i))
+            if not os.path.exists(path):
+                path = 'empty_input'
+        inputs.append(os.path.normpath(path))
+
+    return inputs
+
+
+def output_path():
+    '''Generate output geometry path.'''
+    temp = hou.evalParm('tempdir')
+    output_format = hou.evalParm('output_format')
+    output = 'meshlab_{}_output.{}'.format(ID, output_format)
+    output = os.path.normpath(os.path.join(temp, output))
+    return output
+
+
+def script_path():
+    '''Generate script path.'''
+    temp = hou.evalParm('tempdir')
+    script = 'meshlab_{}_script.mlx'.format(ID)
+    script = os.path.join(temp, script)
+    script = os.path.normpath(script)
+    return script
+
+
+def command():
+    '''Create a list of command line arguments.'''
+    command = [mls_path(),]
+    for path in inputs_path():
+        command.extend(['-i', path])
+    command.extend(['-o', output_path()])
+    command.extend(['-s', script_path()])
+    options = hou.evalParm('options')
+    if options != '':
+        command.extend(['-om'] + options.split())
+    return command
+
+
+def generate_script():
+    '''Generate script from parameter strings containing mlx filters.'''
+    node = hou.pwd()
+    filters = []
+    for parm in node.parms():
+        name = parm.tuple().name()
+        regex = r'f\d+_mlxfilter'
+        if re.match(regex, name) is None:
+            continue
+        filters.append(hou.evalParm(name))
+
+    script_body = '{}{}{}'.format(
+        '<!DOCTYPE FilterScript>\n<FilterScript>\n ',
+        '\n '.join(filters),
+        '\n</FilterScript>\n'
+    )
+
+    return script_body
+
+
+def clean():
+    '''Cleanup temp files after finish or error.'''
+    temp = hou.evalParm('tempdir')
+    node = hou.pwd()
+
+    def clean_remove(filename):
+        '''Try to remove file from disk and log result.'''
+        try:
+            os.remove(os.path.join(temp, filename))
+        except OSError as err:
+            pass
+
+    # Delete input geometry.
+    filenames = []
+    for filename in os.listdir(temp):
+        input_format = hou.evalParm('input_format')
+        regex = r'meshlab_{}_input\d*\.{}'.format(ID, input_format)
+        if re.match(regex, filename) is not None:
+            filenames.append(filename)
+    for filename in filenames:
+        clean_remove(filename)
+
+    # Delete script file.
+    clean_remove(script_path())
+
+    # Delete output geometry.
+    output_format = hou.evalParm('output_format')
+    output_file = 'meshlab_{}_output.{}'.format(ID, output_format)
+    clean_remove(output_path())
+
+    # Destroy temporary data.
+    node.destroyUserData('ID')
+
+
+check()
+ID = hou.phm().generate_id()
+hou.pwd().setUserData('ID', ID)
+
+
+# Write script and input geometry to disk.
+try:
+    with open(script_path(), 'w') as f:
+        f.write(generate_script())
+
+    for i, connections in enumerate(hou.pwd().inputConnectors()):
+        if connections:
+            input_node = connections[0].inputNode()
+            input_node.geometry().saveToFile(inputs_path()[i])
+except:
+    clean()
+
+
+# Run MeshLab.
+try:
+    meshlab_process = subprocess.Popen(
+        command(),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        shell=True
+    )
+    meshlab_output = meshlab_process.communicate()[0]
+except:
+    clean()
+
+
+# Fetch geometry back.
+try:
+    hou.pwd().geometry().loadFromFile(output_path())
+except:
+    clean()
+
+
+clean()

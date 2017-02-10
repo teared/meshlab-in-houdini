@@ -1,0 +1,58 @@
+<FilterScript>
+ <filter name="Alpha Complex/Shape">
+  <Param description="Alpha value" max="745.639" min="0" name="alpha" tooltip="Compute the alpha value as percentage of the diagonal of the bbox" type="RichAbsPerc" value="1" />
+  <Param description="Get:" enum_cardinality="2" enum_val0="Alpha Complex" enum_val1="Alpha Shape" name="Filtering" tooltip="Select the output. The Alpha Shape is the boundary of the Alpha Complex" type="RichEnum" value="0" />
+ </filter>
+<filter name="CSG Operation">
+  <Param description="First Mesh" name="FirstMesh" tooltip="The first operand of the CSG operation" type="RichMesh" value="2" />
+  <Param description="Second Mesh" name="SecondMesh" tooltip="The second operand of the CSG operation" type="RichMesh" value="0" />
+  <Param description="Spacing between sampling lines" max="2.5853" min="0" name="Delta" tooltip="This parameter controls the accuracy of the result and the speed of the computation.The time and memory needed to perform the operation usually scale as the reciprocal square of this value.For optimal results, this value should be at most half the the smallest feature (i.e. the highest frequency) you want to reproduce." type="RichAbsPerc" value="0.025853" />
+  <Param description="Discretization points per sample interval" name="SubDelta" tooltip="This is the number of points between the sampling lines to which the vertices can be rounded.Increasing this can marginally increase the precision and decrease the speed of the operation." type="RichInt" value="32" />
+  <Param description="Operator" enum_cardinality="3" enum_val0="Intersection" enum_val1="Union" enum_val2="Difference" name="Operator" tooltip="Intersection takes the volume shared between the two meshes; Union takes the volume included in at least one of the two meshes; Difference takes the volume included in the first mesh but not in the second one" type="RichEnum" value="0" />
+  <Param description="Extended Marching Cubes" name="Extended" tooltip="Use extended marching cubes for surface reconstruction. It tries to improve the quality of the mesh by reconstructing the sharp features using the information in vertex normals" type="RichBool" value="false" />
+ </filter>
+<filter name="Colorize curvature (APSS)">
+  <Param description="Selection only" name="SelectionOnly" tooltip="If checked, only selected vertices will be projected." type="RichBool" value="false" />
+  <Param description="MLS - Filter scale" name="FilterScale" tooltip="Scale of the spatial low pass filter.&#10;It is relative to the radius (local point spacing) of the vertices." type="RichFloat" value="2" />
+  <Param description="Projection - Accuracy (adv)" name="ProjectionAccuracy" tooltip="Threshold value used to stop the projections.&#10;This value is scaled by the mean point spacing to get the actual threshold." type="RichFloat" value="0.0001" />
+  <Param description="Projection - Max iterations (adv)" name="MaxProjectionIters" tooltip="Max number of iterations for the projection." type="RichInt" value="15" />
+  <Param description="MLS - Spherical parameter" name="SphericalParameter" tooltip="Control the curvature of the fitted spheres: 0 is equivalent to a pure plane fit,1 to a pure spherical fit, values between 0 and 1 gives intermediate results,while others real values might give interresting results, but take care with extremesettings !" type="RichFloat" value="1" />
+  <Param description="Curvature type" enum_cardinality="5" enum_val0="Mean" enum_val1="Gauss" enum_val2="K1" enum_val3="K2" enum_val4="ApproxMean" name="CurvatureType" tooltip="The type of the curvature to plot.&lt;br&gt;ApproxMean uses the radius of the fitted sphere as an approximation of the mean curvature." type="RichEnum" value="0" />
+ </filter>
+<filter name="Compute normals for point sets">
+  <Param description="Neighbour num" name="K" tooltip="The number of neighbors used to estimate normals." type="RichInt" value="10" />
+  <Param description="Smooth Iteration" name="smoothIter" tooltip="The number of smoothing iteration done on the p used to estimate and propagate normals." type="RichInt" value="0" />
+  <Param description="Flip normals w.r.t. viewpoint" name="flipFlag" tooltip="If the 'viewpoint' (i.e. scanner position) is known, it can be used to disambiguate normals orientation, so that all the normals will be oriented in the same direction." type="RichBool" value="false" />
+  <Param description="Viewpoint Pos." name="viewPos" tooltip="The viewpoint position can be set by hand (i.e. getting the current viewpoint) or it can be retrieved from mesh camera, if the viewpoint position is stored there." type="RichPoint3f" x="0" y="0" z="0" />
+ </filter>
+<filter name="Fractal Terrain">
+  <Param description="Subdivision steps:" name="steps" tooltip="Defines the detail of the generated terrain. Allowed values are in range [2,9]. Use values from 6 to 9 to obtain reasonable results." type="RichInt" value="8" />
+  <Param description="Max height:" max="1" min="0" name="maxHeight" tooltip="Defines the maximum perturbation height as a fraction of the terrain's side." type="RichDynamicFloat" value="0.2" />
+  <Param description="Scale factor:" max="10" min="0" name="scale" tooltip="Scales the fractal perturbation in and out. Values larger than 1 mean zoom out; values smaller than one mean zoom in." type="RichDynamicFloat" value="1" />
+  <Param description="Seed:" name="seed" tooltip="By varying this seed, the terrain morphology will change.&#10;Don't change the seed if you want to refine the current terrain morphology by changing the other parameters." type="RichFloat" value="2" />
+  <Param description="Algorithm" enum_cardinality="5" enum_val0="fBM (fractal Brownian Motion)" enum_val1="Standard multifractal" enum_val2="Heterogeneous multifractal" enum_val3="Hybrid multifractal terrain" enum_val4="Ridged multifractal terrain" name="algorithm" tooltip="The algorithm with which the fractal terrain will be generated." type="RichEnum" value="4" />
+  <Param description="Octaves:" max="20" min="1" name="octaves" tooltip="The number of Perlin noise frequencies that will be used to generate the terrain. Reasonable values are in range [2,9]." type="RichDynamicFloat" value="8" />
+  <Param description="Lacunarity:" name="lacunarity" tooltip="The gap between noise frequencies. This parameter is used in conjunction with fractal increment to compute the spectral weights that contribute to the noise in each octave." type="RichFloat" value="4" />
+  <Param description="Fractal increment:" name="fractalIncrement" tooltip="This parameter defines how rough the generated terrain will be. The range of reasonable values changes according to the used algorithm, however you can choose it in range [0.2, 1.5]." type="RichFloat" value="0.5" />
+  <Param description="Offset:" name="offset" tooltip="This parameter controls the multifractality of the generated terrain. If offset is low, then the terrain will be smooth." type="RichFloat" value="0.9" />
+  <Param description="Gain:" name="gain" tooltip="Ignored in all the algorithms except the ridged one. This parameter defines how hard the terrain will be." type="RichFloat" value="2.5" />
+  <Param description="Save as vertex quality" name="saveAsQuality" tooltip="Saves the perturbation value as vertex quality." type="RichBool" value="false" />
+ </filter>
+<filter name="Noisy Isosurface">
+  <Param description="Grid Resolution" name="Resolution" tooltip="Resolution of the side of the cubic grid used for the volume creation" type="RichInt" value="64" />
+ </filter>
+<filter name="Quadric Edge Collapse Decimation">
+  <Param description="Target number of faces" name="TargetFaceNum" tooltip="The desired final number of faces." type="RichInt" value="10000" />
+  <Param description="Percentage reduction (0..1)" name="TargetPerc" tooltip="If non zero, this parameter specifies the desired final size of the mesh as a percentage of the initial size." type="RichFloat" value="0" />
+  <Param description="Quality threshold" name="QualityThr" tooltip="Quality threshold for penalizing bad shaped faces.&lt;br&gt;The value is in the range [0..1]&#10; 0 accept any kind of face (no penalties),&#10; 0.5  penalize faces with quality &lt; 0.5, proportionally to their shape&#10;" type="RichFloat" value="0.3" />
+  <Param description="Preserve Boundary of the mesh" name="PreserveBoundary" tooltip="The simplification process tries to do not affect mesh boundaries during simplification" type="RichBool" value="false" />
+  <Param description="Boundary Preserving Weight" name="BoundaryWeight" tooltip="The importance of the boundary during simplification. Default (1.0) means that the boundary has the same importance of the rest. Values greater than 1.0 raise boundary importance and has the effect of removing less vertices on the border. Admitted range of values (0,+inf). " type="RichFloat" value="1" />
+  <Param description="Preserve Normal" name="PreserveNormal" tooltip="Try to avoid face flipping effects and try to preserve the original orientation of the surface" type="RichBool" value="false" />
+  <Param description="Preserve Topology" name="PreserveTopology" tooltip="Avoid all the collapses that should cause a topology change in the mesh (like closing holes, squeezing handles, etc). If checked the genus of the mesh should stay unchanged." type="RichBool" value="false" />
+  <Param description="Optimal position of simplified vertices" name="OptimalPlacement" tooltip="Each collapsed vertex is placed in the position minimizing the quadric error.&#10; It can fail (creating bad spikes) in case of very flat areas. &#10;If disabled edges are collapsed onto one of the two original vertices and the final mesh is composed by a subset of the original vertices. " type="RichBool" value="true" />
+  <Param description="Planar Simplification" name="PlanarQuadric" tooltip="Add additional simplification constraints that improves the quality of the simplification of the planar portion of the mesh." type="RichBool" value="false" />
+  <Param description="Weighted Simplification" name="QualityWeight" tooltip="Use the Per-Vertex quality as a weighting factor for the simplification. The weight is used as a error amplification value, so a vertex with a high quality value will not be simplified and a portion of the mesh with low quality values will be aggressively simplified." type="RichBool" value="false" />
+  <Param description="Post-simplification cleaning" name="AutoClean" tooltip="After the simplification an additional set of steps is performed to clean the mesh (unreferenced vertices, bad faces, etc)" type="RichBool" value="true" />
+  <Param description="Simplify only selected faces" name="Selected" tooltip="The simplification is applied only to the selected set of faces.&#10; Take care of the target number of faces!" type="RichBool" value="false" />
+ </filter>
+ </FilterScript>

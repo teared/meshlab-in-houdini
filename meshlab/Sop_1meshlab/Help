@@ -1,0 +1,32 @@
+#type: node
+#context: sop
+#largeicon: opdef:/Sop/meshlab?meshlab.png
+
+= MeshLab =
+
+""" Processes geometry through the [MeshLab|http://meshlab.sourceforge.net/] command line interface. """
+
+
+@Parameters
+Script:
+    First Mesh:
+        Will be used as first input geometry, if there is no input connected. Avoids geometry caching step, the node will cook faster. Geometry must be in one of interchangeable formats: ply, obj or stl.
+    Second Mesh:
+        Will be used as second input geometry, if there is no input connected. Avoids geometry caching step, the node will cook faster. Geometry must be in one of interchangeable formats: ply, obj or stl.
+    Options:
+        Which data will be saved in the MeshLab output files. For example, if script generates normals, "Vertex Normals" must be chosen, otherwise imported mesh will not contain it.
+Settings:
+    MeshLab Server:
+        Path to meshlabserver executable.
+    Temp Directory:
+        Directory to save temporary files.
+    Houdini to MeshLab:
+        A file format which will be used to send geometry to the MeshLab.
+    MeshLab to Houdini:
+        A file format which will be used to get geometry back from the MeshLab.
+    Uninstall Filters:
+        Uninstall selected filters from the HDA filters library.
+    Install Filters:
+        Install filters from a file. If the filter already exists, user will be prompted to update default values.
+    Update:
+        Update the filters file stored in the HDA section "MeshLabScripts".
